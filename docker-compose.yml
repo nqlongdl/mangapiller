@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  manga-notifier:
+    build: .
+    container_name: manga-notifier
+    env_file:
+      - .env
+    volumes:
+      - ./backend/manga.db:/app/manga.db  # persist SQLite DB
+    ports:
+      - "8000:8000"  # FastAPI / React frontend
+    restart: unless-stopped

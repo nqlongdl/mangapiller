@@ -1,0 +1,8 @@
+requests
+beautifulsoup4
+discord.py
+python-dateutil
+python-dotenv
+fastapi
+pydantic
+uvicorn
