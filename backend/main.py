@@ -56,7 +56,10 @@ def scrape():
         if dt.date() != now.date():
             continue
 
-        results.append({"title": title, "url": url})
+        img_tag = block.select_one("img[data-src]")
+        thumbnail = img_tag["data-src"] if img_tag else None
+
+        results.append({"title": title, "url": url, "thumbnail": thumbnail})
 
     logger.info("Favorite chapters found today: %d", len(results))
     for r in results:
@@ -78,13 +81,20 @@ async def notify(client, items):
             logger.info("Already sent: %s", item['title'])
             continue
 
-        msg = f"New chapter\n{item['title']}\n{item['url']}"
+        embed = discord.Embed(
+            title=item["title"],
+            url=item["url"],
+            color=discord.Color.orange()
+        )
+        if item["thumbnail"]:
+            embed.set_image(url=item["thumbnail"])
+
         try:
-            await user.send(msg)
-            logger.info("Sent: %s", item['title'])
+            await user.send(embed=embed)
+            logger.info("Sent: %s", item["title"])
             db.mark_sent(item["url"])
         except Exception as e:
-            logger.error("Failed to send Discord message for %s: %s", item['title'], e)
+            logger.error("Failed to send for %s: %s", item["title"], e)
 
 # --- Worker ---
 async def worker(client):
@@ -94,7 +104,7 @@ async def worker(client):
     while True:
         try:
             logger.info("Checking for updates...")
-            items = scrape()
+            items = await asyncio.to_thread(scrape)
             if items:
                 await notify(client, items)
             else:
