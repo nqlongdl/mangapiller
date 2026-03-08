@@ -223,20 +223,15 @@ export default function App() {
     <>
       <style>{styles}</style>
       <div className="app">
-        <div className="header">
+       <div className="header">
+        <div>
           <div className="header-label">MangaPill Notifier</div>
           <h1>WATCH<br /><span>LIST</span></h1>
         </div>
-        <a
-          href="https://mangapill.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ textDecoration: "none" }}
-        >
-          <button className="btn-visit">
-            Browse MangaPill ↗
-          </button>
+        <a href="https://mangapill.com" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+          <button className="btn-visit">Browse MangaPill</button>
         </a>
+      </div>
 
         <div className="input-row">
           <input
