@@ -13,7 +13,7 @@ import uvicorn
 import config
 import db
 from logger import logger
-from api import app  # FastAPI app
+from api import app, set_bot
 
 SCRAPE_HEADERS = {
     "Referer": "https://mangapill.com/",
@@ -169,7 +169,8 @@ async def check_command(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     try:
         items = await asyncio.to_thread(scrape)
-        if items:
+        new_items = [item for item in items if not db.already_sent(item["url"])]
+        if new_items:        
             await notify(bot, items)
             await interaction.followup.send(f"✅ Found {len(items)} new chapter(s)!", ephemeral=True)
         else:
@@ -178,8 +179,16 @@ async def check_command(interaction: discord.Interaction):
         await interaction.followup.send(f"❌ Error: {e}", ephemeral=True)
         await alert_error(bot, f"/check command error: {e}")
 
+async def do_check():
+    items = await asyncio.to_thread(scrape)
+    new_items = [item for item in items if not db.already_sent(item["url"])]
+    if new_items:
+        await notify(bot, items)
+    return len(new_items)
+
 @bot.event
 async def on_ready():
+    set_bot(bot)
     await bot.tree.sync()
     logger.info("Discord bot connected! Slash commands synced.")
     bot.loop.create_task(worker(bot))
