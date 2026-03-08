@@ -33,7 +33,7 @@ def add_favorite(title):
     conn.commit()
 
 def remove_favorite(title):
-    conn.execute("DELETE FROM favorite WHERE title=?", (title,))
+    conn.execute("DELETE FROM favorite WHERE LOWER(title)=LOWER(?)", (title,))
     conn.commit()
 
 # --- Sent chapters ---

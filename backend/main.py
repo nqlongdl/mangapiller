@@ -1,5 +1,7 @@
 import asyncio
+import io
 import requests
+import httpx
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from dateutil import parser
@@ -12,6 +14,10 @@ import config
 import db
 from logger import logger
 from api import app  # FastAPI app
+
+SCRAPE_HEADERS = {
+    "Referer": "https://mangapill.com/",
+}
 
 # --- Scrape ---
 def scrape():
@@ -29,7 +35,7 @@ def scrape():
 
     seen = set()
     results = []
-    favorites = db.get_favorites()
+    favorites = [f.lower() for f in db.get_favorites()]
     for block in all_blocks:
         title_tag = block.select_one(".text-sm.font-bold")
         if not title_tag:
@@ -68,6 +74,17 @@ def scrape():
 
     return results
 
+# --- Fetch thumbnail ---
+async def fetch_image(url: str) -> bytes | None:
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.get(url, timeout=10, follow_redirects=True, headers=SCRAPE_HEADERS)
+            if r.status_code == 200:
+                return r.content
+    except Exception as e:
+        logger.error("Failed to fetch thumbnail: %s", e)
+    return None
+
 # --- Notify ---
 async def notify(client, items):
     try:
@@ -87,11 +104,16 @@ async def notify(client, items):
             url=item["url"],
             color=discord.Color.orange()
         )
+
+        file = None
         if item["thumbnail"]:
-            embed.set_image(url=item["thumbnail"])
+            img_bytes = await fetch_image(item["thumbnail"])
+            if img_bytes:
+                file = discord.File(io.BytesIO(img_bytes), filename="thumbnail.jpg")
+                embed.set_image(url="attachment://thumbnail.jpg")
 
         try:
-            await user.send(embed=embed)
+            await user.send(file=file, embed=embed)
             logger.info("Sent: %s", item["title"])
             db.mark_sent(item["url"])
         except Exception as e:
