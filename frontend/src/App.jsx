@@ -20,6 +20,9 @@ const styles = `
 
   .header {
     margin-bottom: 48px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
   }
 
   .header-label {
@@ -162,6 +165,23 @@ const styles = `
     color: #ff6b2b;
     margin-left: 8px;
   }
+  .btn-visit {
+    background: none;
+    border: 1px solid #2a2a2a;
+    color: #666;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+
+  .btn-visit:hover {
+    border-color: #ff6b2b;
+    color: #ff6b2b;
+  }
 `;
 
 export default function App() {
@@ -207,6 +227,16 @@ export default function App() {
           <div className="header-label">MangaPill Notifier</div>
           <h1>WATCH<br /><span>LIST</span></h1>
         </div>
+        <a
+          href="https://mangapill.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: "none" }}
+        >
+          <button className="btn-visit">
+            Browse MangaPill ↗
+          </button>
+        </a>
 
         <div className="input-row">
           <input
