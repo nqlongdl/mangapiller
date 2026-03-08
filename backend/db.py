@@ -44,3 +44,7 @@ def already_sent(url):
 def mark_sent(url):
     conn.execute("INSERT OR IGNORE INTO sent(url) VALUES(?)", (url,))
     conn.commit()
+
+def cleanup_sent():
+    conn.execute("DELETE FROM sent WHERE sent_at < datetime('now', '-1 day')")
+    conn.commit()

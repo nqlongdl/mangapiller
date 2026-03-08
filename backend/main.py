@@ -147,6 +147,7 @@ async def worker(client):
 
     while True:
         try:
+            db.cleanup_sent()            
             logger.info("Checking for updates...")
             items = await asyncio.to_thread(scrape)
             if items:
