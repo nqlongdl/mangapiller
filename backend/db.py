@@ -2,7 +2,6 @@ import sqlite3
 import os
 
 DB_PATH = "/app/manga.db"
-DB_DIR = os.path.dirname(DB_PATH)
 
 if not os.path.exists(DB_PATH):
     open(DB_PATH, "w").close()

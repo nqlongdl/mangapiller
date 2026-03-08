@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from dateutil import parser
 import discord
+from discord.ext import commands
 from threading import Thread
 import uvicorn
 
@@ -45,7 +46,7 @@ def scrape():
         url = "https://mangapill.com" + link_tag["href"]
         if url in seen:
             continue
-        seen.add(url)        
+        seen.add(url)
 
         time_tag = block.select_one("time-ago")
         if not time_tag:
@@ -115,13 +116,25 @@ async def worker(client):
         logger.info("Sleeping for %d seconds...\n", config.CHECK_INTERVAL)
         await asyncio.sleep(config.CHECK_INTERVAL)
 
-# --- Discord client ---
+# --- Discord bot ---
 intents = discord.Intents.default()
-client = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-@client.event
+@bot.tree.command(name="check", description="Check for new manga chapters now")
+async def check_command(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    items = await asyncio.to_thread(scrape)
+    if items:
+        await notify(bot, items)
+        await interaction.followup.send(f"✅ Found {len(items)} new chapter(s)!", ephemeral=True)
+    else:
+        await interaction.followup.send("😴 No new chapters today.", ephemeral=True)
+
+@bot.event
 async def on_ready():
-    logger.info("Discord bot connected!")
+    await bot.tree.sync()
+    logger.info("Discord bot connected! Slash commands synced.")
+    bot.loop.create_task(worker(bot))
 
 # --- Run FastAPI in thread ---
 def run_api():
@@ -129,12 +142,5 @@ def run_api():
 
 # --- Main ---
 if __name__ == "__main__":
-    # Start FastAPI in separate thread
     Thread(target=run_api, daemon=True).start()
-
-    # Run bot + worker in asyncio loop
-    async def main():
-        asyncio.create_task(worker(client))
-        await client.start(config.DISCORD_TOKEN)
-
-    asyncio.run(main())
+    bot.run(config.DISCORD_TOKEN)
