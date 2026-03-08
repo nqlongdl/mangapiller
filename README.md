@@ -1,57 +1,65 @@
 # 🥭 Manga Notifier
 
-Tự động scrape [MangaPill](https://mangapill.com/chapters) và gửi Discord DM khi có chapter mới của manga yêu thích.
+Automatically scrapes [MangaPill](https://mangapill.com/chapters) and sends a Discord DM when a new chapter drops for your favorite manga.
+
+## 📸 Screenshots
+
+### Web UI
+![Web UI](docs/ui.png)
+
+### Discord Notification
+![Discord Notification](docs/discord.png)
 
 ## ✨ Features
-- Scrape MangaPill mỗi 24h tự động
-- Gửi Discord DM kèm thumbnail chapter
-- `/check` slash command để trigger check thủ công
-- Web UI để quản lý danh sách manga yêu thích
-- Dữ liệu lưu SQLite, persist qua Docker restart
+- Scrapes MangaPill every 24h automatically
+- Sends Discord DM with chapter thumbnail
+- `/check` slash command to trigger an immediate check
+- Web UI to manage your favorite manga list
+- SQLite storage, persists across Docker restarts
 
 ## 🚀 Setup
 
-### 1. Clone repo
+### 1. Clone the repo
 ```bash
 git clone https://github.com/nqlongdl/mangapiller.git
 cd mangapiller
 ```
 
-### 2. Tạo Discord Bot
-1. Vào [Discord Developer Portal](https://discord.com/developers/applications)
-2. New Application → Bot → Reset Token → copy token
-3. Bật **Message Content Intent** nếu cần
-4. Mời bot vào server để dùng slash command `/check`
+### 2. Create a Discord Bot
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. New Application → Bot → Reset Token → copy the token
+3. Enable **Message Content Intent** if needed
+4. Invite the bot to your server to use the `/check` slash command
 
-### 3. Tạo file .env
+### 3. Create the .env file
 ```bash
 cp .env.example .env
 ```
-Điền vào `.env`:
+Fill in `.env`:
 ```env
 DISCORD_TOKEN=your_bot_token
-DISCORD_USER_ID=your_discord_user_id  # chuột phải vào tên mình → Copy User ID
-CHECK_INTERVAL=86400                   # giây, mặc định 24h
+DISCORD_USER_ID=your_discord_user_id  # right-click your name → Copy User ID
+CHECK_INTERVAL=86400                   # in seconds, default 24h
 ```
 
-### 4. Chạy
+### 4. Run
 ```bash
 docker compose up --build
 ```
-Web UI tại `http://localhost:8000`
+Web UI available at `http://localhost:8000`
 
 ## 🤖 Discord Commands
-| Command | Mô tả |
-|---------|-------|
-| `/check` | Trigger check chapter ngay lập tức, không cần chờ 24h |
+| Command | Description |
+|---------|-------------|
+| `/check` | Trigger an immediate chapter check without waiting 24h |
 
-## 📁 Cấu trúc project
+## 📁 Project Structure
 ```
 ├── backend/
 │   ├── main.py       # Discord bot + scraper
 │   ├── api.py        # FastAPI endpoints
 │   ├── db.py         # SQLite
-│   ├── config.py     # Load env
+│   ├── config.py     # Load env vars
 │   └── logger.py
 ├── frontend/
 │   ├── src/
@@ -63,14 +71,15 @@ Web UI tại `http://localhost:8000`
 ```
 
 ## 🔌 API
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| GET | `/api/favorites` | Lấy danh sách manga |
-| POST | `/api/favorites` | Thêm manga (`{"title": "..."}`) |
-| DELETE | `/api/favorites` | Xóa manga (`{"title": "..."}`) |
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/favorites` | List all tracked manga |
+| POST | `/api/favorites` | Add manga (`{"title": "..."}`) |
+| DELETE | `/api/favorites` | Remove manga (`{"title": "..."}`) |
+| POST | `/api/check` | Trigger immediate check |
 
-## 📝 Lưu ý
-- Tên manga phải **khớp một phần** với tên trên MangaPill (không phân biệt hoa thường)
-- `/check` chỉ notify chapter **hôm nay**, không phải toàn bộ history
-- Sửa `.env` chỉ cần `docker compose up`, không cần `--build`
-- `--build` chỉ cần khi sửa code
+## 📝 Notes
+- Manga title only needs to **partially match** the title on MangaPill (case-insensitive)
+- `/check` only notifies chapters released **today**, not full history
+- Changing `.env` only requires `docker compose up`, no `--build` needed
+- `--build` is only needed when changing code
