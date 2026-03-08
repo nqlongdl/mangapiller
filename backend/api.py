@@ -5,6 +5,7 @@ from fastapi import HTTPException
 import asyncio
 import db
 import os
+import logger
 
 app = FastAPI()
 
@@ -25,18 +26,13 @@ def remove_favorite(item: FavoriteItem):
     db.remove_favorite(item.title)
     return {"removed": item.title}
 
-_bot = None
-
-def set_bot(bot):
-    global _bot
-    _bot = bot
-
 @app.post("/api/check")
 def trigger_check():
-    import main
-    if _bot is None or not _bot.is_ready():
+    import sys
+    main = sys.modules.get('__main__')
+    if main is None or not main.bot.is_ready():
         raise HTTPException(status_code=503, detail="Bot not ready yet.")
-    future = asyncio.run_coroutine_threadsafe(main.do_check(), _bot.loop)
+    future = asyncio.run_coroutine_threadsafe(main.do_check(), main.bot.loop)
     try:
         found = future.result(timeout=30)
         return {"found": found}

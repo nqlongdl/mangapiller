@@ -1,17 +1,17 @@
 import sqlite3
 import os
 
-DB_PATH = "/app/manga.db"
+DB_PATH = "/app/data/manga.db"
 
-if not os.path.exists(DB_PATH):
-    open(DB_PATH, "w").close()
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-conn = sqlite3.connect("/app/manga.db", check_same_thread=False)
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
 
 # Sent chapters
 conn.execute("""
 CREATE TABLE IF NOT EXISTS sent (
-    url TEXT PRIMARY KEY
+    url TEXT PRIMARY KEY,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
 

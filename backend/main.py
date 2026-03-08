@@ -13,7 +13,7 @@ import uvicorn
 import config
 import db
 from logger import logger
-from api import app, set_bot
+from api import app
 
 SCRAPE_HEADERS = {
     "Referer": "https://mangapill.com/",
@@ -189,10 +189,9 @@ async def do_check():
 
 @bot.event
 async def on_ready():
-    set_bot(bot)
     await bot.tree.sync()
     logger.info("Discord bot connected! Slash commands synced.")
-    bot.loop.create_task(worker(bot))
+    asyncio.create_task(worker(bot))
 
 # --- Run FastAPI in thread ---
 def run_api():
