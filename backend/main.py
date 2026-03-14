@@ -1,5 +1,6 @@
 import asyncio
 import io
+import time
 import requests
 import httpx
 from bs4 import BeautifulSoup
@@ -19,6 +20,28 @@ SCRAPE_HEADERS = {
     "Referer": "https://mangapill.com/",
 }
 
+# --- Retriable error substrings ---
+RETRIABLE_ERRORS = [
+    "read timeout",
+    "connection timeout",
+    "timed out",
+    "connectionerror",
+    "connection reset",
+    "remotedisconnected",
+    "failed to establish",
+    "temporary failure",
+    "503",
+    "502",
+    "429",
+]
+
+RETRY_COUNT = 3
+RETRY_DELAY = 10  # seconds between retries
+
+def is_retriable(error: Exception) -> bool:
+    msg = str(error).lower()
+    return any(keyword in msg for keyword in RETRIABLE_ERRORS)
+
 # --- Alert owner on error ---
 async def alert_error(client, message: str):
     try:
@@ -27,70 +50,83 @@ async def alert_error(client, message: str):
     except Exception as e:
         logger.error("Failed to send error alert: %s", e)
 
-# --- Scrape ---
+# --- Scrape (with retry) ---
 def scrape():
-    logger.info("Start scraping %s", config.MANGA_URL)
-    try:
-        r = requests.get(config.MANGA_URL, timeout=20)
-        logger.info("HTTP status: %s", r.status_code)
-        r.raise_for_status()
-    except Exception as e:
-        logger.error("HTTP request failed: %s", e)
-        raise
+    last_error = None
 
-    soup = BeautifulSoup(r.text, "html.parser")
-    all_blocks = soup.select("div")
-    logger.debug("Total divs found: %d", len(all_blocks))
+    for attempt in range(1, RETRY_COUNT + 1):
+        try:
+            logger.info("Start scraping %s (attempt %d/%d)", config.MANGA_URL, attempt, RETRY_COUNT)
+            r = requests.get(config.MANGA_URL, timeout=20)
+            logger.info("HTTP status: %s", r.status_code)
+            r.raise_for_status()
 
-    seen = set()
-    results = []
-    favorites = [f.lower() for f in db.get_favorites()]
-    for block in all_blocks:
-        title_tag = block.select_one(".text-sm.font-bold")
-        if not title_tag:
-            continue
+            soup = BeautifulSoup(r.text, "html.parser")
+            all_blocks = soup.select("div")
+            logger.debug("Total divs found: %d", len(all_blocks))
 
-        title_lower = title_tag.text.lower()
-        if not any(x in title_lower for x in favorites):
-            continue
+            seen = set()
+            results = []
+            favorites = [f.lower() for f in db.get_favorites()]
+            for block in all_blocks:
+                title_tag = block.select_one(".text-sm.font-bold")
+                if not title_tag:
+                    continue
 
-        link_tag = block.select_one("a[href^='/chapters']")
-        if not link_tag:
-            continue
+                title_lower = title_tag.text.lower()
+                if not any(x in title_lower for x in favorites):
+                    continue
 
-        url = "https://mangapill.com" + link_tag["href"]
-        if url in seen:
-            continue
-        seen.add(url)
+                link_tag = block.select_one("a[href^='/chapters']")
+                if not link_tag:
+                    continue
 
-        time_tag = block.select_one("time-ago")
-        if not time_tag:
-            continue
+                url = "https://mangapill.com" + link_tag["href"]
+                if url in seen:
+                    continue
+                seen.add(url)
 
-        dt = parser.isoparse(time_tag["datetime"])
-        now = datetime.now(timezone.utc)
-        if dt.date() != now.date():
-            continue
+                time_tag = block.select_one("time-ago")
+                if not time_tag:
+                    continue
 
-        # Display title: capitalize + chapter number
-        display_title = title_tag.text.strip()
-        chapter_tag = block.select_one(".mt-3.text-lg.font-black")
-        chapter_num = chapter_tag.text.strip() if chapter_tag else ""
+                dt = parser.isoparse(time_tag["datetime"])
+                now = datetime.now(timezone.utc)
+                if dt.date() != now.date():
+                    continue
 
-        img_tag = block.select_one("img[data-src]")
-        thumbnail = img_tag["data-src"] if img_tag else None
+                display_title = title_tag.text.strip()
+                chapter_tag = block.select_one(".mt-3.text-lg.font-black")
+                chapter_num = chapter_tag.text.strip() if chapter_tag else ""
 
-        results.append({
-            "title": f"{display_title} {chapter_num}".strip(),
-            "url": url,
-            "thumbnail": thumbnail
-        })
+                img_tag = block.select_one("img[data-src]")
+                thumbnail = img_tag["data-src"] if img_tag else None
 
-    logger.info("Favorite chapters found today: %d", len(results))
-    for r in results:
-        logger.info(" -> %s | %s", r['title'], r['url'])
+                results.append({
+                    "title": f"{display_title} {chapter_num}".strip(),
+                    "url": url,
+                    "thumbnail": thumbnail
+                })
 
-    return results
+            logger.info("Favorite chapters found today: %d", len(results))
+            for r in results:
+                logger.info(" -> %s | %s", r['title'], r['url'])
+
+            return results
+
+        except Exception as e:
+            last_error = e
+            if is_retriable(e):
+                logger.warning("Retriable error on attempt %d/%d: %s", attempt, RETRY_COUNT, e)
+                if attempt < RETRY_COUNT:
+                    logger.info("Retrying in %d seconds...", RETRY_DELAY)
+                    time.sleep(RETRY_DELAY)
+            else:
+                logger.error("Non-retriable error, aborting: %s", e)
+                raise
+
+    logger.error("All %d scrape attempts failed. Last error: %s", RETRY_COUNT, last_error)
+    raise last_error
 
 # --- Fetch thumbnail ---
 async def fetch_image(url: str) -> bytes | None:
